@@ -7,60 +7,65 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.content.Intent;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import java.util.HashMap;
+import java.util.Map;
+
 public class SignupActivity extends AppCompatActivity {
-    private EditText nameEdit, emailEdit, phoneEdit, passwordEdit;
     private Button signupButton;
-    private TextView loginLink;
+    private EditText emailEdit, passwordEdit, phoneEdit;
+    private FirebaseAuth mAuth;
+    private DatabaseReference mDatabase;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_signup);
 
-        nameEdit = findViewById(R.id.et_nameSignup);
-        emailEdit = findViewById(R.id.et_emailSignup);
-        phoneEdit = findViewById(R.id.et_phoneSignup);
-        passwordEdit = findViewById(R.id.et_passwordSignup);
-        signupButton = findViewById(R.id.btn_signup);
-        loginLink = findViewById(R.id.tv_loginLink);
+        mAuth = FirebaseAuth.getInstance();
+        mDatabase = FirebaseDatabase.getInstance().getReference();
 
-        signupButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String name = nameEdit.getText().toString();
-                String email = emailEdit.getText().toString();
-                String phone = phoneEdit.getText().toString();
-                String password = passwordEdit.getText().toString();
+        emailEdit = findViewById(R.id.emailEdit);
+        passwordEdit = findViewById(R.id.passwordEdit);
+        phoneEdit = findViewById(R.id.phoneEdit);
+        signupButton = findViewById(R.id.signupButton);
 
-                if (validateInput(name, email, phone, password)) {
-                    // Perform signup logic here
-                    Toast.makeText(SignupActivity.this, "Signup Successful!", Toast.LENGTH_SHORT).show();
-                    finish();
-                }
-            }
-        });
-
-        loginLink.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                finish();
-            }
-        });
+        signupButton.setOnClickListener(v -> handleSignup());
     }
 
-    private boolean validateInput(String name, String email, String phone, String password) {
-        if (name.isEmpty() || email.isEmpty() || phone.isEmpty() || password.isEmpty()) {
+    private void handleSignup() {
+        String email = emailEdit.getText().toString().trim();
+        String password = passwordEdit.getText().toString().trim();
+        String phone = phoneEdit.getText().toString().trim();
+
+        if (email.isEmpty() || password.isEmpty() || phone.isEmpty()) {
             Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
-            return false;
+            return;
         }
 
-        // Add phone number validation
-        if (!android.util.Patterns.PHONE.matcher(phone).matches()) {
-            Toast.makeText(this, "Please enter a valid phone number", Toast.LENGTH_SHORT).show();
-            return false;
-        }
+        mAuth.createUserWithEmailAndPassword(email, password)
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    saveUserData(email, phone);
+                    startActivity(new Intent(this, MainActivity.class));
+                    finish();
+                } else {
+                    Toast.makeText(this, "Signup failed: " + task.getException().getMessage(),
+                        Toast.LENGTH_SHORT).show();
+                }
+            });
+    }
 
-        return true;
+    private void saveUserData(String email, String phone) {
+        String userId = mAuth.getCurrentUser().getUid();
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("email", email);
+        userData.put("phone", phone);
+
+        mDatabase.child("users").child(userId).setValue(userData);
     }
 }
-
